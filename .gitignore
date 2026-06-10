@@ -1,0 +1,15 @@
+node_modules/
+dist/
+coverage/
+
+data/*.csv
+data/*.db
+data/*.db-wal
+data/*.db-shm
+data/results/*.csv
+data/results/*.json
+data/results/*.png
+
+.env
+.DS_Store
+npm-debug.log*

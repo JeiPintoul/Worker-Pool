@@ -1,0 +1,46 @@
+{
+  "name": "worker-pool-etl-benchmark",
+  "version": "1.0.0",
+  "description": "Academic benchmark comparing single-thread and worker-pool ETL execution in Node.js.",
+  "main": "dist/index.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "install:deps": "npm install",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "generate": "npm run build && node dist/cli/generate.js",
+    "benchmark:single": "npm run build && node dist/cli/runBenchmark.js --mode single",
+    "benchmark:pool": "npm run build && node dist/cli/runBenchmark.js --mode pool",
+    "benchmark:all": "npm run build && node dist/cli/runBenchmark.js --mode all",
+    "charts": "npm run build && node dist/cli/charts.js",
+    "clean": "npm run build && node dist/cli/clean.js"
+  },
+  "keywords": [
+    "worker-pool",
+    "etl",
+    "worker-threads",
+    "typescript",
+    "benchmark"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "better-sqlite3": "^11.10.0",
+    "commander": "^13.1.0",
+    "csv-parse": "^5.6.0",
+    "sharp": "^0.33.5"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.10.10",
+    "eslint": "^9.18.0",
+    "prettier": "^3.4.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.20.0"
+  }
+}
