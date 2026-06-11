@@ -4,6 +4,7 @@ import { DateParser } from '../utils/DateParser';
 import { HashService } from '../utils/HashService';
 import { NameSanitizer } from '../utils/NameSanitizer';
 
+// Etapa Transform: normaliza campos e calcula o hash pesado usado no benchmark.
 export class DataTransformer {
   constructor(
     private readonly nameSanitizer = new NameSanitizer(),
@@ -11,10 +12,12 @@ export class DataTransformer {
     private readonly hashService = new HashService(),
   ) {}
 
+  // A mesma transformação é usada na linha de base e dentro dos Workers.
   transformRows(rows: RawCsvRow[], hashRounds: number): TransformedRow[] {
     return rows.map((row) => this.transformRow(row, hashRounds));
   }
 
+  // Concentra a etapa de transformação usada tanto no baseline quanto nos Workers.
   private transformRow(row: RawCsvRow, hashRounds: number): TransformedRow {
     const dataIso = this.dateParser.parseToIso(row.dataCompra);
     const valorReais = row.valorCentavos / 100;

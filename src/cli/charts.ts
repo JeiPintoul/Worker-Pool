@@ -2,6 +2,7 @@ import { Command } from 'commander';
 import { DEFAULT_RESULTS_DIR } from '../config/BenchmarkConfig';
 import { ChartGenerator } from '../infrastructure/ChartGenerator';
 
+// CLI separada para recriar gráficos a partir de resultados já persistidos.
 async function main(): Promise<void> {
   const program = new Command();
 
@@ -12,6 +13,7 @@ async function main(): Promise<void> {
 
   program.parse();
   const options = program.opts<{ outputDir: string }>();
+  // Usa o mesmo diretório de resultados produzido pelo benchmark.
   const chartPaths = await new ChartGenerator().generate(options.outputDir);
 
   console.log(`Charts generated: ${chartPaths.join(', ')}`);

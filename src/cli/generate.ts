@@ -13,9 +13,11 @@ const dirtyNames = [
   ' rAFAEL   mARTINS  ',
 ];
 
+// Gera o CSV usado na etapa Extract do benchmark.
 async function generateCsv(rows: number, output: string): Promise<void> {
   await FileSystemUtils.ensureDirectoryForFile(output);
 
+  // Gera dados sintéticos previsíveis para repetir o mesmo experimento.
   const stream = createWriteStream(output, { encoding: 'utf8' });
   stream.write('id,nome_cliente,data_compra,valor_centavos\n');
 
@@ -31,6 +33,7 @@ async function generateCsv(rows: number, output: string): Promise<void> {
   await once(stream, 'finish');
 }
 
+// Varia os formatos de data para exercitar a transformação no ETL.
 function createDate(id: number): string {
   const year = 2020 + (id % 5);
   const month = (id % 12) + 1;
@@ -50,10 +53,12 @@ function createDate(id: number): string {
   }
 }
 
+// Mantém valores determinísticos sem depender de aleatoriedade.
 function createValueInCents(id: number): number {
   return 500 + ((id * 7919) % 250_000);
 }
 
+// Permite gerar apenas o CSV, sem executar o benchmark.
 async function main(): Promise<void> {
   const program = new Command();
 

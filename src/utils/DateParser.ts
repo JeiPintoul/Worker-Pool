@@ -1,3 +1,4 @@
+// Normaliza datas variadas do CSV para ISO, facilitando comparação e persistência.
 export class DateParser {
   parseToIso(value: string): string {
     const trimmed = value.trim();
@@ -8,6 +9,7 @@ export class DateParser {
     }
 
     const [first, second, third] = parts;
+    // Aceita datas com ano no início ou no fim, usando / ou - como separador.
     const yearFirst = first?.length === 4;
     const year = Number.parseInt(yearFirst ? first : third ?? '', 10);
     const month = Number.parseInt(yearFirst ? second ?? '' : second ?? '', 10);
@@ -20,6 +22,7 @@ export class DateParser {
     return `${this.pad(year, 4)}-${this.pad(month, 2)}-${this.pad(day, 2)}`;
   }
 
+  // Confere se a data existe de fato, não apenas se os números estão em faixa.
   private isValidDate(year: number, month: number, day: number): boolean {
     if (year < 1900 || month < 1 || month > 12 || day < 1 || day > 31) {
       return false;
@@ -34,6 +37,7 @@ export class DateParser {
     );
   }
 
+  // Mantém ano, mês e dia com tamanho fixo no formato ISO.
   private pad(value: number, size: number): string {
     return value.toString().padStart(size, '0');
   }

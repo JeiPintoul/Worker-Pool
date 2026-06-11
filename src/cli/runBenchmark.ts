@@ -34,6 +34,7 @@ interface BenchmarkCliOptions {
   resetDatabase: boolean;
 }
 
+// Ponto de entrada da CLI que configura e executa o experimento.
 async function main(): Promise<void> {
   const program = new Command();
 
@@ -55,16 +56,19 @@ async function main(): Promise<void> {
 
   program.parse();
   const options = program.opts<BenchmarkCliOptions>();
+  // Valida argumentos numéricos antes de criar dados, Workers ou bancos.
   const mode = parseMode(options.mode);
   const workers = parsePositiveInteger(options.workers, 'workers');
   const chunkSize = parsePositiveInteger(options.chunkSize, 'chunk-size');
   const batchSize = parsePositiveInteger(options.batchSize, 'batch-size');
   const hashRounds = parsePositiveInteger(options.hashRounds, 'hash-rounds');
 
+  // Modo all gera o CSV, roda as duas abordagens e cria os gráficos comparativos.
   if (mode === 'all') {
     const rows = parsePositiveInteger(options.rows, 'rows');
     await generateCsv(rows, options.input);
 
+    // Primeiro roda a linha de base para comparar com a versão paralela.
     const singleResult = await new SingleThreadEtlRunner().run({
       mode: 'single-thread',
       input: options.input,
@@ -78,6 +82,7 @@ async function main(): Promise<void> {
     });
     printSummary(singleResult);
 
+    // Depois roda o Worker Pool com os mesmos parâmetros de chunk, batch e hash.
     const poolResult = await new WorkerPoolEtlRunner().run({
       mode: 'worker-pool',
       input: options.input,
@@ -97,6 +102,8 @@ async function main(): Promise<void> {
   }
 
   const db = options.db ?? (mode === 'single' ? DEFAULT_SINGLE_DB_PATH : DEFAULT_POOL_DB_PATH);
+  // Modo single executa só a linha de base; modo pool executa só o Worker Pool.
+  // rows só é usado no modo all, porque single e pool consomem um CSV existente.
   const result =
     mode === 'single'
       ? await new SingleThreadEtlRunner().run({
@@ -125,6 +132,7 @@ async function main(): Promise<void> {
   printSummary(result);
 }
 
+// Validação simples evita rodar benchmarks com modo inexistente.
 function parseMode(value: string): CliMode {
   if (value === 'single' || value === 'pool' || value === 'all') {
     return value;
@@ -133,6 +141,7 @@ function parseMode(value: string): CliMode {
   throw new Error('mode must be one of: single, pool, all.');
 }
 
+// Exibe os parâmetros usados junto com as métricas principais da execução.
 function printSummary(result: BenchmarkResult): void {
   console.log('');
   console.log(`Mode: ${result.mode}`);

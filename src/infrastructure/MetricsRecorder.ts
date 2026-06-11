@@ -5,12 +5,15 @@ import path from 'node:path';
 import { BenchmarkResult } from '../domain/BenchmarkResult';
 import { FileSystemUtils } from './FileSystemUtils';
 
+// Persiste as métricas depois de cada execução do benchmark.
 export class MetricsRecorder {
   constructor(
     private readonly db: BetterSqlite3.Database,
     private readonly resultsDirectory: string,
   ) {}
 
+  // Salva cada resultado em SQLite, JSON e CSV.
+  // Os três formatos atendem consultas diferentes sem repetir a execução.
   async record(result: BenchmarkResult): Promise<void> {
     this.insertSqlite(result);
     await this.appendJson(result);
@@ -25,6 +28,8 @@ export class MetricsRecorder {
     return path.join(this.resultsDirectory, 'benchmark-results.csv');
   }
 
+  // Mantém um histórico consultável no próprio banco do experimento.
+  // O schema é criado pelo SqliteLoader antes da execução.
   private insertSqlite(result: BenchmarkResult): void {
     this.db
       .prepare(
@@ -55,6 +60,8 @@ export class MetricsRecorder {
       );
   }
 
+  // O JSON é a fonte usada depois pelo gerador de gráficos.
+  // Ele preserva todos os resultados para encontrar pares compatíveis.
   private async appendJson(result: BenchmarkResult): Promise<void> {
     const jsonPath = this.getJsonPath();
     await FileSystemUtils.ensureDirectoryForFile(jsonPath);
@@ -67,6 +74,8 @@ export class MetricsRecorder {
     await writeFile(jsonPath, `${JSON.stringify(currentResults, null, 2)}\n`, 'utf8');
   }
 
+  // O CSV facilita inspeção externa em planilhas ou outras ferramentas.
+  // Cada linha inclui os parâmetros do experimento junto com as métricas.
   private async appendCsv(result: BenchmarkResult): Promise<void> {
     const csvPath = this.getCsvPath();
     await FileSystemUtils.ensureDirectoryForFile(csvPath);

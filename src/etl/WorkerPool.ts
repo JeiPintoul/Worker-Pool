@@ -22,14 +22,19 @@ interface WorkerErrorMessage {
 
 interface WorkerState {
   worker: Worker;
+  // activeTask indica qual chunk está em processamento neste Worker.
   activeTask?: WorkerTask;
 }
 
 type WorkerMessage = WorkerSuccessMessage | WorkerErrorMessage;
 
+// Pool fixo de Workers reutilizáveis para evitar criar threads a cada chunk.
 export class WorkerPool {
+  // A fila guarda tarefas esperando um Worker livre.
   private readonly queue: WorkerTask[] = [];
+  // Cada posição representa um Worker reutilizável e seu estado atual.
   private readonly workers: WorkerState[];
+  // Cada taskId permite correlacionar a resposta do Worker com a Promise original.
   private nextTaskId = 1;
   private shuttingDown = false;
 
@@ -37,6 +42,8 @@ export class WorkerPool {
     this.workers = Array.from({ length: workerCount }, () => this.createWorker(workerFilePath));
   }
 
+  // Enfileira um chunk para transformação paralela.
+  // A Promise será resolvida quando o Worker devolver as linhas transformadas.
   run(rows: RawCsvRow[], hashRounds: number): Promise<TransformedRow[]> {
     if (this.shuttingDown) {
       return Promise.reject(new Error('Worker pool is shutting down.'));
@@ -57,14 +64,17 @@ export class WorkerPool {
 
   async shutdown(): Promise<void> {
     this.shuttingDown = true;
+    // Encerra as threads de forma explícita ao final do benchmark.
     await Promise.all(this.workers.map((state) => state.worker.terminate()));
   }
 
+  // Cria um Worker e registra os handlers que mantêm o pool consistente.
   private createWorker(workerFilePath: string): WorkerState {
     const state: WorkerState = {
       worker: new Worker(workerFilePath),
     };
 
+    // Eventos do Worker sempre voltam para a main thread.
     state.worker.on('message', (message: unknown) => this.handleMessage(state, message));
     state.worker.on('error', (error) => this.failPool(error));
     state.worker.on('exit', (code) => {
@@ -76,6 +86,8 @@ export class WorkerPool {
     return state;
   }
 
+  // Despacha tarefas da fila para Workers sem activeTask.
+  // Isso mantém o número de Workers fixo e reaproveita as threads existentes.
   private dispatch(): void {
     for (const state of this.workers) {
       if (state.activeTask || this.queue.length === 0) {
@@ -89,6 +101,7 @@ export class WorkerPool {
       }
 
       state.activeTask = task;
+      // A activeTask registra qual Promise será resolvida quando este Worker responder.
       state.worker.postMessage({
         taskId: task.id,
         rows: task.rows,
@@ -97,6 +110,8 @@ export class WorkerPool {
     }
   }
 
+  // Resolve ou rejeita somente a tarefa que corresponde ao taskId recebido.
+  // Uma resposta com taskId inesperado indica erro de correlação entre request e response.
   private handleMessage(state: WorkerState, message: unknown): void {
     const task = state.activeTask;
 
@@ -123,6 +138,8 @@ export class WorkerPool {
     this.dispatch();
   }
 
+  // Falha todas as tarefas pendentes para evitar Promises presas em deadlock silencioso.
+  // Sem isso, uma falha de Worker poderia deixar o runner esperando para sempre.
   private failPool(error: Error): void {
     this.shuttingDown = true;
 
@@ -136,6 +153,7 @@ export class WorkerPool {
     }
   }
 
+  // Garante que mensagens vindas de Workers tenham o formato mínimo esperado.
   private isWorkerMessage(message: unknown): message is WorkerMessage {
     if (typeof message !== 'object' || message === null) {
       return false;

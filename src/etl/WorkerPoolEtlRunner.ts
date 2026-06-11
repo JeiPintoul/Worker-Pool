@@ -13,9 +13,12 @@ type SettledChunk =
   | { promise: Promise<TransformedRow[]>; rows: TransformedRow[] }
   | { promise: Promise<TransformedRow[]>; error: unknown };
 
+// Execução paralela: Workers transformam chunks, mas a main thread lê CSV e escreve no SQLite.
+// A diferença para o baseline está só na etapa Transform, que vira trabalho paralelo.
 export class WorkerPoolEtlRunner {
   constructor(private readonly csvChunkReader = new CsvChunkReader()) {}
 
+  // Orquestra Extract, Transform paralelo e Load centralizado.
   async run(config: BenchmarkConfig): Promise<BenchmarkResult> {
     const database = await Database.open(config.db, config.resetDatabase);
     const workerPath = path.resolve(__dirname, '../workers/transformWorker.js');
@@ -27,12 +30,18 @@ export class WorkerPoolEtlRunner {
 
       const metricsRecorder = new MetricsRecorder(database.getConnection(), config.outputDir);
       const start = performance.now();
+      // Tarefas já enviadas aos Workers, mas ainda não inseridas no SQLite.
+      // A Promise carrega o resultado futuro de um chunk transformado.
       const inFlight = new Set<Promise<TransformedRow[]>>();
+      // Mantém os Workers ocupados sem acumular chunks demais na memória.
+      // O limite reduz pressão de memória quando o CSV é maior que a capacidade de processamento.
       const maxInFlight = Math.max(config.workers * 2, 1);
       let totalRowsRead = 0;
       let totalRowsInserted = 0;
 
       const waitForOne = async (): Promise<void> => {
+        // Espera o primeiro Worker terminar para liberar memória e gravar o batch.
+        // Promise.race evita esperar todos os chunks pendentes para continuar o Load.
         const completed = await Promise.race(
           Array.from(
             inFlight,
@@ -53,9 +62,11 @@ export class WorkerPoolEtlRunner {
         }
 
         loader.insertRows(completed.rows, config.batchSize);
+        // Mesmo no modo paralelo, a inserção do chunk concluído ocorre na main thread.
         totalRowsInserted += completed.rows.length;
       };
 
+      // Chunks são unidades de trabalho dos Workers; batches são blocos de insert no SQLite.
       for await (const chunk of this.csvChunkReader.readChunks(config.input, config.chunkSize)) {
         totalRowsRead += chunk.length;
         inFlight.add(workerPool.run(chunk, config.hashRounds));
@@ -72,6 +83,8 @@ export class WorkerPoolEtlRunner {
       const totalTimeMs = performance.now() - start;
       const totalRows = loader.countRows();
 
+      // Garante comparação justa com a execução single-thread.
+      // Se alguma linha sumir ou duplicar, a métrica de performance fica inválida.
       if (totalRowsInserted !== totalRowsRead) {
         throw new Error(
           `Inserted rows mismatch. Read ${totalRowsRead} rows, inserted ${totalRowsInserted} rows.`,
@@ -102,6 +115,8 @@ export class WorkerPoolEtlRunner {
 
       return result;
     } finally {
+      // Mesmo com erro, encerra Workers para não deixar threads vivas.
+      // O banco também é fechado aqui para liberar o arquivo SQLite.
       await workerPool.shutdown();
       database.close();
     }

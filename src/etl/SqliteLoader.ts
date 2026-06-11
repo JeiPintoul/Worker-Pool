@@ -1,9 +1,11 @@
 import BetterSqlite3 from 'better-sqlite3';
 import { TransformedRow } from '../domain/TransformedRow';
 
+// Etapa Load: concentra a criação do schema e a escrita no SQLite.
 export class SqliteLoader {
   constructor(private readonly db: BetterSqlite3.Database) {}
 
+  // As tabelas guardam tanto os dados processados quanto o histórico do benchmark.
   createSchema(): void {
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS etl_records (
@@ -32,6 +34,7 @@ export class SqliteLoader {
     `);
   }
 
+  // A escrita é centralizada na main thread para evitar concorrência no SQLite.
   insertRows(rows: TransformedRow[], batchSize: number): void {
     const insert = this.db.prepare(`
       INSERT INTO etl_records (
@@ -55,6 +58,7 @@ export class SqliteLoader {
       )
     `);
 
+    // batchSize controla quantas linhas entram em cada transação SQLite.
     const insertBatch = this.db.transaction((batch: TransformedRow[]) => {
       for (const row of batch) {
         insert.run(row);
@@ -66,6 +70,7 @@ export class SqliteLoader {
     }
   }
 
+  // Usado na validação final para confirmar o total realmente persistido.
   countRows(): number {
     const row = this.db.prepare('SELECT COUNT(*) AS count FROM etl_records').get() as {
       count: number;

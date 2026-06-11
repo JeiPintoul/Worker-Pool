@@ -10,6 +10,8 @@ interface ChartItem {
   value: number;
 }
 
+// Gera gráficos a partir dos resultados persistidos pelo benchmark.
+// Não executa benchmark; apenas interpreta o histórico salvo em disco.
 export class ChartGenerator {
   async generate(resultsDirectory: string): Promise<string[]> {
     const results = await this.loadLatestResults(resultsDirectory);
@@ -45,11 +47,13 @@ export class ChartGenerator {
   }> {
     const jsonPath = path.join(resultsDirectory, 'benchmark-results.json');
 
+    // Os gráficos partem do JSON acumulado em execuções anteriores.
     if (!existsSync(jsonPath)) {
       throw new Error(`Benchmark results file not found: ${jsonPath}`);
     }
 
     const results = JSON.parse(await readFile(jsonPath, 'utf8')) as BenchmarkResult[];
+    // Só compara resultados com os mesmos parâmetros do experimento.
     const compatiblePair = this.findLatestCompatiblePair(results);
 
     if (!compatiblePair) {
@@ -61,6 +65,8 @@ export class ChartGenerator {
     return compatiblePair;
   }
 
+  // Procura o par compatível mais recente entre single-thread e Worker Pool.
+  // Isso permite rodar vários benchmarks e ainda gerar gráficos da comparação mais atual.
   private findLatestCompatiblePair(
     results: BenchmarkResult[],
   ): { single: BenchmarkResult; pool: BenchmarkResult } | undefined {
@@ -91,6 +97,8 @@ export class ChartGenerator {
       })[0];
   }
 
+  // Compatível significa mesmo volume de dados e mesmos parâmetros do experimento.
+  // A regra evita comparar execuções com custos diferentes de leitura, batch ou hash.
   private areCompatible(single: BenchmarkResult, pool: BenchmarkResult): boolean {
     return (
       single.totalRows === pool.totalRows &&
@@ -108,6 +116,8 @@ export class ChartGenerator {
   ): Promise<void> {
     await FileSystemUtils.ensureDirectoryForFile(filePath);
 
+    // O SVG é montado em memória e convertido para PNG pelo sharp.
+    // Gerar SVG primeiro simplifica o desenho das barras sem depender de canvas.
     const width = 1280;
     const height = 720;
     const plotTop = 130;

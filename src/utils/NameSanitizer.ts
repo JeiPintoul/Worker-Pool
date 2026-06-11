@@ -1,3 +1,4 @@
+// Normaliza nomes sintéticos para simular limpeza de dados no ETL.
 export class NameSanitizer {
   sanitize(value: string): string {
     return value
@@ -9,6 +10,7 @@ export class NameSanitizer {
       .join(' ');
   }
 
+  // Ajusta cada parte do nome após trim, compactação de espaços e lowercase.
   private capitalize(value: string): string {
     if (value.length === 0) {
       return value;

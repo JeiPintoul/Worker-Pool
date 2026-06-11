@@ -2,6 +2,7 @@ import { Command } from 'commander';
 import { DEFAULT_OUTPUT_DIR } from '../config/BenchmarkConfig';
 import { FileSystemUtils } from '../infrastructure/FileSystemUtils';
 
+// CLI utilitária para limpar arquivos gerados entre execuções do experimento.
 async function main(): Promise<void> {
   const program = new Command();
 
@@ -12,6 +13,7 @@ async function main(): Promise<void> {
 
   program.parse();
   const options = program.opts<{ target: string }>();
+  // Remove a pasta de dados, incluindo CSV, bancos SQLite, métricas e gráficos.
   await FileSystemUtils.removePath(options.target);
   console.log(`Removed ${options.target}`);
 }
